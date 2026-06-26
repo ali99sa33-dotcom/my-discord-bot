@@ -4,13 +4,13 @@ import discord
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 
-# 1. خادم الويب لإبقاء البوت حياً 24 ساعة في منصة رندر والتجاوز
+# 1. Web server to keep the bot alive 24/7 on Render
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(b"Ultimate Premium Bot is Active 24/7 with Maximum Features!")
+        self.wfile.write(b"Ultimate Premium Bot is Active 24/7!")
 
 def run_web_server():
     server = HTTPServer(("0.0.0.0", 10000), MyServer)
@@ -18,7 +18,7 @@ def run_web_server():
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# 2. إعدادات البوت وبدء التشغيل مع الأزرار المستمرة
+# 2. Bot settings and Intents configuration
 TOKEN = os.getenv('TOKEN')
 intents = discord.Intents.all()
 
@@ -29,12 +29,11 @@ class MyBot(discord.Client):
     async def on_ready(self):
         self.add_view(TicketPanelView())
         self.add_view(TicketCloseView())
-        print(f'تم تفعيل البوت الأسطوري الشامل بكامل القوة: {self.user}')
-        await self.change_presence(activity=discord.Game(name="👑 السيرفر محمي بالكامل | !help"))
+        print(f'Bot is ready: {self.user}')
+        await self.change_presence(activity=discord.Game(name="👑 Premium Protection | !help"))
 
 client = MyBot()
 
-# دالة مساعدة لإرسال اللوق بشكل آلي ومنظم لقناة اللوق
 async def send_to_log(guild, embed):
     log_channel = discord.utils.get(guild.text_channels, name='logs')
     if not log_channel:
@@ -42,13 +41,12 @@ async def send_to_log(guild, embed):
     if log_channel:
         await log_channel.send(embed=embed)
 
-# 3. نظام تتبع تعديل الأذونات والصلاحيات للأدوار والقنوات (Audit Logs)
+# 3. Audit logs for roles and channels
 @client.event
 async def on_guild_role_update(before, after):
     if before.permissions != after.permissions:
         embed = discord.Embed(title="⚠️ تعديل صلاحيات رتبة (Role Permissions)", color=discord.Color.dark_orange(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="الرتبة المعدلة:", value=after.mention, inline=True)
-        embed.description = "تم تعديل الأذونات والصلاحيات الخاصة بهذه الرتبة من قبل أحد الإداريين عبر إعدادات السيرفر."
         await send_to_log(after.guild, embed)
 
 @client.event
@@ -56,10 +54,9 @@ async def on_guild_channel_update(before, after):
     if before.overwrites != after.overwrites:
         embed = discord.Embed(title="🔒 تعديل صلاحيات قناة (Channel Overwrites)", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="القناة:", value=after.mention, inline=True)
-        embed.description = "تم تغيير أذونات الدخول أو قراءة الرسائل أو قفل القناة وتعديل الجدار الأمني الخاص بها."
         await send_to_log(after.guild, embed)
 
-# 4. نظام التذاكر الاحترافي المتميز بالأزرار (4 أقسام مخصصة)
+# 4. Interactive Ticket System
 class TicketPanelView(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout=None)
@@ -67,7 +64,6 @@ class TicketPanelView(discord.ui.View):
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str, color: discord.Color):
         guild = interaction.guild
         user = interaction.user
-        
         category = discord.utils.get(guild.categories, name="📌 TICKETS")
         if not category:
             category = await guild.create_category("📌 TICKETS")
@@ -80,14 +76,9 @@ class TicketPanelView(discord.ui.View):
 
         channel_name = f"{ticket_type}-{user.name}"
         ticket_channel = await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
-        await interaction.response.send_message(f"✅ تم فتح تذكرتك بنجاح هنا: {ticket_channel.mention}", ephemeral=True)
+        await interaction.response.send_message(f"✅ تم فتح تذكرتك بنجاح: {ticket_channel.mention}", ephemeral=True)
 
-        embed = discord.Embed(
-            title=f"🎫 تذكرة جديدة | {ticket_type.upper()}",
-            description=f"مرحباً بك {user.mention} في قسم تذاكر الـ **{ticket_type}**.\nيرجى كتابة استفسارك هنا وسيقوم طاقم الإدارة بالرد عليك فوراً.",
-            color=color
-        )
-        embed.set_footer(text="اضغط على الزر أدناه لإغلاق التذكرة فوراً.")
+        embed = discord.Embed(title=f"🎫 تذكرة جديدة | {ticket_type.upper()}", description=f"مرحباً بك {user.mention}، يرجى كتابة تفاصيل مشكلتك هنا وسيرد عليك الدعم الفني.", color=color)
         await ticket_channel.send(embed=embed, view=TicketCloseView())
 
     @discord.ui.button(label="تذكرة باند", style=discord.ButtonStyle.danger, custom_id="btn_ban", emoji="🔨")
@@ -112,25 +103,20 @@ class TicketCloseView(discord.ui.View):
 
     @discord.ui.button(label="إغلاق التذكرة 🔒", style=discord.ButtonStyle.danger, custom_id="btn_close_ticket")
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🔒 جاري أرشفة وحذف التذكرة خلال ثوانٍ...")
         await interaction.channel.delete()
 
-# 5. نظام الترحيب التلقائي بالأعضاء الجدد (💜 ‖ Welcome)
+# 5. Welcome System (💜 ‖ Welcome)
 @client.event
 async def on_member_join(member):
     channel = discord.utils.get(member.guild.text_channels, name='💜-‖-welcome')
     if not channel: channel = discord.utils.get(member.guild.text_channels, name='welcome')
     if channel:
-        embed = discord.Embed(
-            title="👋 عضو جديد انضم إلينا!",
-            description=f"يا مرحباً بك {member.mention} في سيرفرنا!\n\nيسعدنا جداً انضمامك، نتمنى لك وقتاً ممتعاً ✨",
-            color=discord.Color.purple()
-        )
+        embed = discord.Embed(title="👋 عضو جديد انضم إلينا!", description=f"يا مرحباً بك {member.mention} في سيرفرنا! ✨", color=discord.Color.purple())
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"أنت العضو رقم {len(member.guild.members)} في السيرفر")
         await channel.send(embed=embed)
 
-# 6. نظام سجل مراقبة الشات والرسائل (Message Logs)
+# 6. Message Logs
 @client.event
 async def on_message_delete(message):
     if message.author.bot: return
@@ -150,7 +136,7 @@ async def on_message_edit(before, after):
     embed.add_field(name="بعد التعديل:", value=after.content, inline=False)
     await send_to_log(before.guild, embed)
 
-# 7. نظام لوق وتتبع الرومات الصوتية الشامل الخارق (تحركات، سحب، كتم، دفن)
+# 7. Voice Logs (Join, Leave, Move, Mute, Deafen)
 @client.event
 async def on_voice_state_update(member, before, after):
     embed = discord.Embed(color=discord.Color.blue(), timestamp=datetime.datetime.utcnow())
@@ -187,9 +173,26 @@ async def on_voice_state_update(member, before, after):
         embed.color = discord.Color.dark_purple()
         await send_to_log(member.guild, embed)
 
-# 8. نظام معالجة الأوامر، الحماية التلقائية، والتحكم بالرتب الإدارية
+# 8. Core Commands and Anti-Links Management
 @client.event
 async def on_message(message):
     if message.author.bot: return
 
-    # حظر ومسح الروابط العشوائية لحماية السيرفر
+    if "http" in message.content or "discord.gg" in message.content:
+        if not message.author.guild_permissions.administrator:
+            await message.delete()
+            await message.channel.send(f"❌ {message.author.mention}، الروابط ممنوعة هنا لحماية السيرفر!", delete_after=5)
+            return
+
+    content = message.content.strip()
+
+    if content == '!ticket':
+        if message.author.guild_permissions.administrator:
+            await message.delete()
+            embed = discord.Embed(title="🎫 نظام تذاكر الدعم الفني | Ticket System", description="مرحباً بك في مركز خدمة السيرفر. اضغط على الزر بالأسفل لفتح تذكرة فوراً.\n\n🔨 **تذكرة باند**\n⚙️ **تذكرة إدارة**\n🤝 **تذكرة مساعدة**\n🛒 **تذكرة متجر**", color=discord.Color.purple())
+            await message.channel.send(embed=embed, view=TicketPanelView())
+            return
+
+    if content.startswith('!role'):
+        if message.author.guild_permissions.manage_roles:
+            args = content.split()
