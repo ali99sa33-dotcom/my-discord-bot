@@ -4,12 +4,13 @@ import discord
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 
+# 1. Web server configuration for Render keep-alive
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(b"Bot is alive!")
+        self.wfile.write(b"Bot is alive and running!")
 
 def run_web_server():
     server = HTTPServer(("0.0.0.0", 10000), MyServer)
@@ -17,26 +18,22 @@ def run_web_server():
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
+# 2. Core Bot initialization with all gateway intents
 TOKEN = os.getenv('TOKEN')
 intents = discord.Intents.all()
+client = discord.Client(intents=intents)
 
-class MyBot(discord.Client):
-    def __init__(self):
-        super().__init__(intents=intents)
-
-    async def on_ready(self):
-        self.add_view(TicketPanelView())
-        self.add_view(TicketCloseView())
-        print(f'Bot is ready: {self.user}')
-        await self.change_presence(activity=discord.Game(name="👑 Premium Security | !help"))
-
-client = MyBot()
+@client.event
+async def on_ready():
+    print(f'Bot successfully logged in as: {client.user}')
+    await client.change_presence(activity=discord.Game(name="👑 Ultimate Security | !help"))
 
 async def send_to_log(guild, embed):
     log_channel = discord.utils.get(guild.text_channels, name='logs')
     if not log_channel: log_channel = discord.utils.get(guild.text_channels, name='اللوق')
     if log_channel: await log_channel.send(embed=embed)
 
+# 3. Server administration logging (Permissions & Roles)
 @client.event
 async def on_guild_role_update(before, after):
     if before.permissions != after.permissions:
@@ -51,6 +48,7 @@ async def on_guild_channel_update(before, after):
         embed.add_field(name="القناة:", value=after.mention, inline=True)
         await send_to_log(after.guild, embed)
 
+# 4. Interactive button tickets panel
 class TicketPanelView(discord.ui.View):
     def __init__(self) -> None: super().__init__(timeout=None)
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str, color: discord.Color):
@@ -82,6 +80,7 @@ class TicketCloseView(discord.ui.View):
     @discord.ui.button(label="إغلاق التذكرة 🔒", style=discord.ButtonStyle.danger, custom_id="btn_close_ticket")
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button): await interaction.channel.delete()
 
+# 5. Core Discord events and logging handlers
 @client.event
 async def on_member_join(member):
     channel = discord.utils.get(member.guild.text_channels, name='💜-‖-welcome')
@@ -98,7 +97,7 @@ async def on_message_delete(message):
     embed = discord.Embed(title="🗑️ الرسائل المحذوفة", color=discord.Color.red())
     embed.add_field(name="المرسل:", value=message.author.mention, inline=True)
     embed.add_field(name="القناة:", value=message.channel.mention, inline=True)
-    embed.add_field(name="المحتوى المحذوف:", value=message.content if message.content else "صورة أو ملف", inline=False)
+    embed.add_field(name="المحتوى המחذوف:", value=message.content if message.content else "صورة أو ملف", inline=False)
     await send_to_log(message.guild, embed)
 
 @client.event
@@ -142,6 +141,7 @@ async def on_voice_state_update(member, before, after):
         embed.description = f"العضو {member.mention} قام بـ **{state}**"
         await send_to_log(member.guild, embed)
 
+# 6. Core message event router (Commands and Anti-Links)
 @client.event
 async def on_message(message):
     if message.author.bot: return
@@ -160,9 +160,9 @@ async def on_message(message):
         if message.author.guild_permissions.manage_roles:
             args = content.split()
             if len(args) >= 4 and message.mentions and message.role_mentions:
-                action = args[1].lower()
-                user = message.mentions[0]
-                role = message.role_mentions[0]
+                action = args.lower()
+                user = message.mentions
+                role = message.role_mentions
                 if action == 'add': await user.add_roles(role)
                 elif action == 'remove': await user.remove_roles(role)
         return
@@ -175,5 +175,3 @@ async def on_message(message):
         await message.channel.send(f'🏓 Pong! {round(client.latency * 1000)}ms')
         return
     if content == '!server':
-        embed = discord.Embed(title=f"📊 تفاصيل سيرفر {message.guild.name}", color=discord.Color.gold())
-        embed.add_field(name="👑 المالك:", value=message.guild.owner.mention if message.guild.owner else "غير معروف", inline=True)
