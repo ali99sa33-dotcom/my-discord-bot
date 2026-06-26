@@ -45,7 +45,6 @@ async def send_to_log(guild, embed):
 # 3. نظام تتبع تعديل الأذونات والصلاحيات للأدوار والقنوات (Audit Logs)
 @client.event
 async def on_guild_role_update(before, after):
-    # تتبع تغيير الصلاحيات في الرتب
     if before.permissions != after.permissions:
         embed = discord.Embed(title="⚠️ تعديل صلاحيات رتبة (Role Permissions)", color=discord.Color.dark_orange(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="الرتبة المعدلة:", value=after.mention, inline=True)
@@ -54,7 +53,6 @@ async def on_guild_role_update(before, after):
 
 @client.event
 async def on_guild_channel_update(before, after):
-    # تتبع تغيير الصلاحيات في القنوات (Permissions Overwrites)
     if before.overwrites != after.overwrites:
         embed = discord.Embed(title="🔒 تعديل صلاحيات قناة (Channel Overwrites)", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="القناة:", value=after.mention, inline=True)
@@ -192,3 +190,6 @@ async def on_voice_state_update(member, before, after):
 # 8. نظام معالجة الأوامر، الحماية التلقائية، والتحكم بالرتب الإدارية
 @client.event
 async def on_message(message):
+    if message.author.bot: return
+
+    # حظر ومسح الروابط العشوائية لحماية السيرفر
