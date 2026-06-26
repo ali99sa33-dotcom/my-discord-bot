@@ -174,7 +174,6 @@ async def on_message(message):
     if content == '!ping':
         await message.channel.send(f'🏓 Pong! {round(client.latency * 1000)}ms')
         return
-    if content.startswith('!clear') and message.author.guild_permissions.manage_messages:
-        await message.channel.purge(limit=100)
-        return
-    if content.startswith('!kick') and message.author.guild_permissions.kick_members and message.mentions:
+    if content == '!server':
+        embed = discord.Embed(title=f"📊 تفاصيل سيرفر {message.guild.name}", color=discord.Color.gold())
+        embed.add_field(name="👑 المالك:", value=message.guild.owner.mention if message.guild.owner else "غير معروف", inline=True)
