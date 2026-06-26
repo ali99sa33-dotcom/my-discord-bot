@@ -20,8 +20,8 @@ threading.Thread(target=run_web_server, daemon=True).start()
 
 # 2. كود البوت الأساسي والأوامر
 TOKEN = os.getenv('TOKEN')
-intents = discord.Intents.default()
-intents.message_content = True 
+intents = discord.Intents.all()
+ 
 
 client = discord.Client(intents=intents)
 
