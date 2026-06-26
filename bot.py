@@ -4,13 +4,13 @@ import discord
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 
-# 1. خادم الويب لإبقاء البوت حياً 24 ساعة في منصة رندر
+# 1. خادم الويب لإبقاء البوت حياً 24 ساعة في منصة رندر والتجاوز
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(b"Bot is fully active 24/7 with all premium features!")
+        self.wfile.write(b"Ultimate Premium Bot is Active 24/7 with Maximum Features!")
 
 def run_web_server():
     server = HTTPServer(("0.0.0.0", 10000), MyServer)
@@ -18,17 +18,23 @@ def run_web_server():
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# 2. إعدادات البوت والصلاحيات الشاملة الخارقة
+# 2. إعدادات البوت وبدء التشغيل مع الأزرار المستمرة
 TOKEN = os.getenv('TOKEN')
 intents = discord.Intents.all()
-client = discord.Client(intents=intents)
 
-@client.event
-async def on_ready():
-    print(f'تم تفعيل البوت الشامل والكامل بنجاح: {client.user}')
-    await client.change_presence(activity=discord.Game(name="🛡️ نظام الحماية الشامل | !help"))
+class MyBot(discord.Client):
+    def __init__(self):
+        super().__init__(intents=intents)
 
-# Helper function لـ إرسال اللوق بشكل منظم ونظيف
+    async def on_ready(self):
+        self.add_view(TicketPanelView())
+        self.add_view(TicketCloseView())
+        print(f'تم تفعيل البوت الأسطوري الشامل بكامل القوة: {self.user}')
+        await self.change_presence(activity=discord.Game(name="👑 السيرفر محمي بالكامل | !help"))
+
+client = MyBot()
+
+# دالة مساعدة لإرسال اللوق بشكل آلي ومنظم لقناة اللوق
 async def send_to_log(guild, embed):
     log_channel = discord.utils.get(guild.text_channels, name='logs')
     if not log_channel:
@@ -36,12 +42,86 @@ async def send_to_log(guild, embed):
     if log_channel:
         await log_channel.send(embed=embed)
 
-# 3. نظام الترحيب التلقائي بالأعضاء الجدد (💜 ‖ Welcome)
+# 3. نظام تتبع تعديل الأذونات والصلاحيات للأدوار والقنوات (Audit Logs)
+@client.event
+async def on_guild_role_update(before, after):
+    # تتبع تغيير الصلاحيات في الرتب
+    if before.permissions != after.permissions:
+        embed = discord.Embed(title="⚠️ تعديل صلاحيات رتبة (Role Permissions)", color=discord.Color.dark_orange(), timestamp=datetime.datetime.utcnow())
+        embed.add_field(name="الرتبة المعدلة:", value=after.mention, inline=True)
+        embed.description = "تم تعديل الأذونات والصلاحيات الخاصة بهذه الرتبة من قبل أحد الإداريين عبر إعدادات السيرفر."
+        await send_to_log(after.guild, embed)
+
+@client.event
+async def on_guild_channel_update(before, after):
+    # تتبع تغيير الصلاحيات في القنوات (Permissions Overwrites)
+    if before.overwrites != after.overwrites:
+        embed = discord.Embed(title="🔒 تعديل صلاحيات قناة (Channel Overwrites)", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
+        embed.add_field(name="القناة:", value=after.mention, inline=True)
+        embed.description = "تم تغيير أذونات الدخول أو قراءة الرسائل أو قفل القناة وتعديل الجدار الأمني الخاص بها."
+        await send_to_log(after.guild, embed)
+
+# 4. نظام التذاكر الاحترافي المتميز بالأزرار (4 أقسام مخصصة)
+class TicketPanelView(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    async def create_ticket(self, interaction: discord.Interaction, ticket_type: str, color: discord.Color):
+        guild = interaction.guild
+        user = interaction.user
+        
+        category = discord.utils.get(guild.categories, name="📌 TICKETS")
+        if not category:
+            category = await guild.create_category("📌 TICKETS")
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+        }
+
+        channel_name = f"{ticket_type}-{user.name}"
+        ticket_channel = await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
+        await interaction.response.send_message(f"✅ تم فتح تذكرتك بنجاح هنا: {ticket_channel.mention}", ephemeral=True)
+
+        embed = discord.Embed(
+            title=f"🎫 تذكرة جديدة | {ticket_type.upper()}",
+            description=f"مرحباً بك {user.mention} في قسم تذاكر الـ **{ticket_type}**.\nيرجى كتابة استفسارك هنا وسيقوم طاقم الإدارة بالرد عليك فوراً.",
+            color=color
+        )
+        embed.set_footer(text="اضغط على الزر أدناه لإغلاق التذكرة فوراً.")
+        await ticket_channel.send(embed=embed, view=TicketCloseView())
+
+    @discord.ui.button(label="تذكرة باند", style=discord.ButtonStyle.danger, custom_id="btn_ban", emoji="🔨")
+    async def ban_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket(interaction, "appeal-ban", discord.Color.red())
+
+    @discord.ui.button(label="تذكرة إدارة", style=discord.ButtonStyle.primary, custom_id="btn_admin", emoji="⚙️")
+    async def admin_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket(interaction, "admin", discord.Color.blue())
+
+    @discord.ui.button(label="تذكرة مساعدة", style=discord.ButtonStyle.success, custom_id="btn_help", emoji="🤝")
+    async def help_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket(interaction, "help", discord.Color.green())
+
+    @discord.ui.button(label="تذكرة متجر", style=discord.ButtonStyle.secondary, custom_id="btn_store", emoji="🛒")
+    async def store_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket(interaction, "store", discord.Color.gold())
+
+class TicketCloseView(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="إغلاق التذكرة 🔒", style=discord.ButtonStyle.danger, custom_id="btn_close_ticket")
+    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("🔒 جاري أرشفة وحذف التذكرة خلال ثوانٍ...")
+        await interaction.channel.delete()
+
+# 5. نظام الترحيب التلقائي بالأعضاء الجدد (💜 ‖ Welcome)
 @client.event
 async def on_member_join(member):
     channel = discord.utils.get(member.guild.text_channels, name='💜-‖-welcome')
-    if not channel:
-        channel = discord.utils.get(member.guild.text_channels, name='welcome')
+    if not channel: channel = discord.utils.get(member.guild.text_channels, name='welcome')
     if channel:
         embed = discord.Embed(
             title="👋 عضو جديد انضم إلينا!",
@@ -52,14 +132,14 @@ async def on_member_join(member):
         embed.set_footer(text=f"أنت العضو رقم {len(member.guild.members)} في السيرفر")
         await channel.send(embed=embed)
 
-# 4. لوق تتبع الرسائل المحذوفة والمعدلة
+# 6. نظام سجل مراقبة الشات والرسائل (Message Logs)
 @client.event
 async def on_message_delete(message):
     if message.author.bot: return
     embed = discord.Embed(title="🗑️ رسالة محذوفة", color=discord.Color.red())
     embed.add_field(name="المرسل:", value=message.author.mention, inline=True)
     embed.add_field(name="القناة:", value=message.channel.mention, inline=True)
-    embed.add_field(name="المحتوى المحذوف:", value=message.content if message.content else "لا يوجد نص (صورة أو ملف)", inline=False)
+    embed.add_field(name="المحتوى المحذوف:", value=message.content if message.content else "صورة أو ملف", inline=False)
     await send_to_log(message.guild, embed)
 
 @client.event
@@ -72,118 +152,43 @@ async def on_message_edit(before, after):
     embed.add_field(name="بعد التعديل:", value=after.content, inline=False)
     await send_to_log(before.guild, embed)
 
-# 5. 🔥 نظام لوق الرومات الصوتية الخارق (تحركات، سحب، طرد، كتم، دفن)
+# 7. نظام لوق وتتبع الرومات الصوتية الشامل الخارق (تحركات، سحب، كتم، دفن)
 @client.event
 async def on_voice_state_update(member, before, after):
     embed = discord.Embed(color=discord.Color.blue(), timestamp=datetime.datetime.utcnow())
     embed.set_author(name=f"{member.name}", icon_url=member.display_avatar.url)
     
-    # دخول روم صوتي
     if before.channel is None and after.channel is not None:
         embed.title = "📥 دخول روم صوتي"
         embed.description = f"قام العضو {member.mention} بدخول الروم الصوتي: **{after.channel.name}**"
         await send_to_log(member.guild, embed)
-        
-    # خروج من روم صوتي
     elif before.channel is not None and after.channel is None:
         embed.title = "📤 خروج من روم صوتي"
         embed.description = f"قام العضو {member.mention} بمغادرة الروم الصوتي: **{before.channel.name}**"
         embed.color = discord.Color.dark_red()
         await send_to_log(member.guild, embed)
-        
-    # الانتقال أو السحب بين الرومات
     elif before.channel is not None and after.channel is not None and before.channel != after.channel:
         embed.title = "🔄 انتقال / سحب عضو"
         embed.description = f"تم نقل العضو {member.mention}\nمن روم: **{before.channel.name}**\nإلى روم: **{after.channel.name}**"
         embed.color = discord.Color.gold()
         await send_to_log(member.guild, embed)
 
-    # تتبع الكتم والدفن (Mute / Deafen) من الإدارة أو الشخص نفسه
     if before.self_mute != after.self_mute or before.mute != after.mute:
         embed.title = "🎙️ تغيير حالة المايك (كتم)"
         state = "قفل المايك 🤐" if after.self_mute or after.mute else "فتح المايك 🗣️"
-        by_admin = "(بواسطة الإدارة/سيرفر)" if after.mute or (before.mute and not after.mute) else "(تلقائي من الشخص)"
+        by_admin = "(إداري)" if after.mute or (before.mute and not after.mute) else "(تلقائي)"
         embed.description = f"العضو {member.mention} قام بـ **{state}** {by_admin}"
         embed.color = discord.Color.purple()
         await send_to_log(member.guild, embed)
 
     if before.self_deaf != after.self_deaf or before.deaf != after.deaf:
         embed.title = "🎧 تغيير حالة السماعة (دفن/صموت)"
-        state = "شغّل الدفن (صموت) 🔇" if after.self_deaf or after.deaf else "قفل الدفن (سماع) 🔊"
-        by_admin = "(بواسطة الإدارة/سيرفر)" if after.deaf or (before.deaf and not after.deaf) else "(تلقائي من الشخص)"
+        state = "شغّل الدفن 🔇" if after.self_deaf or after.deaf else "قفل الدفن 🔊"
+        by_admin = "(إداري)" if after.deaf or (before.deaf and not after.deaf) else "(تلقائي)"
         embed.description = f"العضو {member.mention} قام بـ **{state}** {by_admin}"
         embed.color = discord.Color.dark_purple()
         await send_to_log(member.guild, embed)
 
-# 6. نظام معالجة الأوامر، الحماية، والإدارة
+# 8. نظام معالجة الأوامر، الحماية التلقائية، والتحكم بالرتب الإدارية
 @client.event
 async def on_message(message):
-    if message.author.bot: return
-
-    # نظام الحماية من الروابط
-    if "http" in message.content or "discord.gg" in message.content:
-        if not message.author.guild_permissions.administrator:
-            await message.delete()
-            await message.channel.send(f"❌ {message.author.mention}، يمنع نشر الروابط لحماية السيرفر!", delete_after=5)
-            return
-
-    content = message.content.strip()
-
-    # أمر قائمة المساعدة المحدثة
-    if content == '!help':
-        embed = discord.Embed(title="📜 لوحة تحكم البوت الكاملة والشاملة", color=discord.Color.green())
-        embed.add_field(name="⚙️ الأوامر العامة:", value="`!ping` - فحص سرعة الاتصال\n`!server` - معلومات السيرفر", inline=False)
-        embed.add_field(name="🛡️ أوامر الإدارة الحازمة:", value="`!clear [العدد]` - تنظيف الشات\n`!kick @user` - طرد عضو\n`!ban @user` - حظر عضو\n`!timeout @user [الدقائق]` - تايم أوت\n`!untimeout @user` - فك التايم أوت", inline=False)
-        embed.set_footer(text="البوت يراقب ويحمي السيرفر والرومات الصوتية تلقائياً على مدار الساعة")
-        await message.channel.send(embed=embed)
-
-    if content == '!ping':
-        await message.channel.send(f'🏓 Pong! {round(client.latency * 1000)}ms')
-
-    if content == '!server':
-        embed = discord.Embed(title=f"📊 تفاصيل سيرفر {message.guild.name}", color=discord.Color.gold())
-        embed.add_field(name="👑 المالك:", value=message.guild.owner.mention if message.guild.owner else "غير معروف", inline=True)
-        embed.add_field(name="👥 الأعضاء:", value=str(message.guild.member_count), inline=True)
-        await message.channel.send(embed=embed)
-
-    # أمر تنظيف الشات
-    if content.startswith('!clear'):
-        if message.author.guild_permissions.manage_messages:
-            args = content.split()
-            amount = 100
-            if len(args) > 1 and args[1].isdigit():
-                amount = int(args[1]) + 1
-            await message.channel.purge(limit=amount)
-            await message.channel.send(f"🧹 تم تنظيف الشات وحذف {amount-1} رسالة.", delete_after=5)
-
-    # أوامر الكيك والـبان
-    if content.startswith('!kick'):
-        if message.author.guild_permissions.kick_members and message.mentions:
-            user = message.mentions[0]
-            await user.kick(reason="أمر إداري")
-            await message.channel.send(f"✅ تم طرد {user.mention} بنجاح.")
-
-    if content.startswith('!ban'):
-        if message.author.guild_permissions.ban_members and message.mentions:
-            user = message.mentions[0]
-            await user.ban(reason="أمر إداري")
-            await message.channel.send(f"🚨 تم حظر {user.mention} كلياً.")
-
-    # أوامر التايم أوت وفكه
-    if content.startswith('!timeout'):
-        if message.author.guild_permissions.moderate_members and message.mentions:
-            user = message.mentions[0]
-            args = content.split()
-            minutes = 10
-            if len(args) > 2 and args[2].isdigit():
-                minutes = int(args[2])
-            await user.timeout(datetime.timedelta(minutes=minutes), reason="إجراء إداري")
-            await message.channel.send(f"🤫 تم إسكات {user.mention} لمدة {minutes} دقيقة.")
-
-    if content.startswith('!untimeout'):
-        if message.author.guild_permissions.moderate_members and message.mentions:
-            user = message.mentions[0]
-            await user.timeout(None)
-            await message.channel.send(f"🔊 تم فك التايم أوت عن {user.mention}، يمكنه التحدث الآن.")
-
-client.run(TOKEN)
